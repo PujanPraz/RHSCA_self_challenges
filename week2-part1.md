@@ -356,4 +356,81 @@ lsblk
 
 ---
 
+---
+
+## 🎤 Interview Questions — Storage & Disks
+
+These are real questions asked in sysadmin and DevOps interviews.
+
+---
+
+### Basic Level
+
+**Q: What are the 3 steps required before you can store files on a new disk?**
+> Partition the disk, create a filesystem, and mount it to a directory. Without all three steps the disk is unusable.
+
+**Q: What is the difference between a partition and a filesystem?**
+> A partition is just a divided section of a disk — it has no structure yet. A filesystem is the organization layer on top of a partition that allows Linux to store, find, and manage files. A partition without a filesystem is like a room with no floor.
+
+**Q: What command do you use to partition a disk in Linux?**
+> `fdisk` for MBR disks. `parted` or `gdisk` for GPT disks.
+
+**Q: What is the default filesystem used on RHEL and CentOS?**
+> XFS. Created with `mkfs.xfs /dev/sdb1`.
+
+**Q: What is fstab and why is it important?**
+> `/etc/fstab` is the Filesystem Table. Linux reads it on every boot and automatically mounts all listed filesystems. Without an fstab entry, a manually mounted disk disappears after every reboot.
+
+**Q: What is the difference between `mount` and fstab?**
+> `mount` is temporary — it mounts a disk right now but the mount disappears after reboot. fstab is permanent — Linux automatically mounts it on every boot.
+
+**Q: What command do you use to verify a disk is mounted?**
+> `df -h` shows all mounted filesystems with size and usage. `lsblk` shows disk layout including mount points.
+
+---
+
+### Intermediate Level
+
+**Q: Why should you use UUID instead of /dev/sdb1 in fstab?**
+> Device names like `/dev/sdb1` can change if you add or remove disks. What was `sdb` today could become `sdc` after adding another disk. UUID is burned into the filesystem permanently and never changes regardless of disk order.
+
+**Q: How do you find the UUID of a partition?**
+> `sudo blkid /dev/sdb1` — this shows the UUID, filesystem type, and partition UUID.
+
+**Q: What command tests fstab entries without rebooting?**
+> `sudo mount -a` — this reads fstab and mounts everything listed. If there is an error it tells you immediately instead of failing silently on reboot.
+
+**Q: What happens if you have a wrong entry in fstab?**
+> The server may fail to boot or boot into emergency mode. This is why you always backup fstab before editing (`cp /etc/fstab /etc/fstab.backup`) and always test with `mount -a` before rebooting.
+
+**Q: What is the difference between primary and extended partitions?**
+> Primary partitions are real usable partitions — you can put a filesystem directly on them. Extended partitions are containers that hold logical partitions inside them. MBR disks allow maximum 4 partitions, so extended partitions allow you to create more by putting logical partitions inside them.
+
+**Q: What does the last column in fstab (0 0) mean?**
+> The 5th column is for the `dump` backup tool — almost always 0. The 6th column controls filesystem check order on boot — 0 means never check, 1 means check first (root partition), 2 means check after root.
+
+**Q: How do you safely unmount a disk?**
+> `sudo umount /data` — make sure no processes are using the mount point first. If it says device is busy use `lsof /data` to find which process is using it.
+
+---
+
+### Scenario Based
+
+**Q: A developer says "I can see the disk but cannot write files to it." What do you check?**
+> 1. Check if it is mounted: `df -h`
+> 2. Check permissions on the mount point: `ls -ld /data`
+> 3. Check if filesystem is mounted read-only: `mount | grep sdb1`
+> 4. Check disk space: `df -h`
+
+**Q: After adding a new disk the server rebooted and the disk is not mounted anymore. What happened and how do you fix it?**
+> The disk was mounted temporarily with `mount` but never added to `/etc/fstab`. Fix: get the UUID with `sudo blkid /dev/sdb1`, add the entry to `/etc/fstab`, run `sudo mount -a` to test, then reboot to verify.
+
+**Q: You edited fstab and now the server won't boot. What do you do?**
+> Boot into rescue/emergency mode. Mount the root filesystem manually. Edit `/etc/fstab` and fix or remove the bad entry. Reboot normally. This is exactly why you always backup fstab before editing.
+
+**Q: What is the difference between XFS and EXT4? When would you choose one over the other?**
+> XFS is faster for large files and parallel workloads. It is the default on RHEL/CentOS. EXT4 is more mature and handles small files well. For RHEL/CentOS production servers always use XFS. For general purpose Linux servers either works.
+
+---
+
 *Notes by Pujan | RHCSA Hands-On Self Challenge | Week 2*
