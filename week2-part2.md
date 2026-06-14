@@ -345,4 +345,137 @@ df -h
 
 ---
 
+
+## Day 11 — Extending a Logical Volume (Zero Downtime)
+ 
+### 🎯 Scenario
+> `/lvm-data` is filling up. Extend it by 3GB using free space already in the pool. No downtime. Developers should not notice anything.
+ 
+---
+ 
+### 📖 Concepts
+ 
+#### Two Things Need To Grow — Not Just One
+ 
+```
+lvextend    ← resizes the CONTAINER (the logical volume itself)
+xfs_growfs  ← resizes the CONTENTS (the filesystem inside it)
+```
+ 
+Both steps are required. This is the #1 mistake junior sysadmins make — they run `lvextend`, check `df -h`, see no change, and panic thinking it failed.
+ 
+#### Do You Always Need vgextend?
+ 
+Not always! Check `vgs` first:
+ 
+```
+VG      VSize    VFree
+datavg  10.00g   5.00g   ← 5GB already free in the pool!
+```
+ 
+If the pool already has free space, skip `vgextend` and go straight to `lvextend`. Only run `vgextend` when the POOL itself is full and you are adding a brand new disk.
+ 
+```
+Pool has free space?
+  ├─ Yes → lvextend → xfs_growfs
+  └─ No  → vgextend (add new disk) → lvextend → xfs_growfs
+```
+ 
+---
+ 
+### 💻 Commands
+ 
+```bash
+# Step 1 — Check current status
+sudo pvs
+sudo vgs
+sudo lvs
+df -h
+ 
+# Step 2 — Extend the logical volume (+3GB)
+sudo lvextend -L +3G /dev/datavg/datalv
+# Output: Size of logical volume datavg/datalv changed from 5.00 GiB to 8.00 GiB
+ 
+# Step 3 — Check df -h (still shows OLD size!)
+df -h
+# /dev/mapper/datavg-datalv   5.0G   130M   4.9G   3%   /lvm-data
+# ← filesystem doesn't know about new space yet
+ 
+# Step 4 — Grow the filesystem (note: use MOUNT POINT, not device path)
+sudo xfs_growfs /lvm-data
+# Output: data blocks changed from 1310720 to 2097152
+ 
+# Step 5 — Verify
+df -h
+# /dev/mapper/datavg-datalv   8.0G   189M   7.8G   3%   /lvm-data ✅
+```
+ 
+### ✅ Verification
+ 
+```bash
+sudo vgs
+# VG      VSize    VFree
+# datavg  10.00g   2.00g   ← was 5GB free, used 3GB, now 2GB free
+```
+ 
+Math check: `5.00g - 3G = 2.00g` ✅
+ 
+---
+ 
+### 🧠 The lvextend Flag Syntax
+ 
+| Syntax | Meaning |
+|--------|---------|
+| `-L +3G` | Add 3GB to current size |
+| `-L 8G` | Set absolute size to 8GB (not add) |
+| `-l +100%FREE` | Use ALL remaining free space in the pool |
+ 
+> `+` means "add this much". No `+` means "set to exactly this size".
+ 
+---
+ 
+### 🧠 Important — Command Targets Differ!
+ 
+| Command | Points to |
+|---------|-----------|
+| `lvextend` | Device path → `/dev/datavg/datalv` |
+| `xfs_growfs` | Mount point → `/lvm-data` |
+ 
+Easy to mix up. `lvextend` works on the LVM layer (device). `xfs_growfs` works on the filesystem layer (mount point).
+ 
+---
+ 
+### Full LVM Lifecycle Summary
+ 
+| Action | Command |
+|--------|---------|
+| Create PV | `pvcreate /dev/sda` |
+| Create VG | `vgcreate datavg /dev/sda` |
+| Create LV | `lvcreate -n datalv -L 5G datavg` |
+| Add disk to pool (if pool is full) | `vgextend datavg /dev/sdc` |
+| Extend LV | `lvextend -L +3G /dev/datavg/datalv` |
+| Grow filesystem | `xfs_growfs /lvm-data` |
+| Check everything | `pvs`, `vgs`, `lvs`, `df -h` |
+ 
+---
+ 
+## 🎤 Additional Interview Questions — Extending LVM
+ 
+**Q: After lvextend, df -h still shows the old size. Is something wrong?**
+> No, this is expected. `lvextend` resizes the logical volume at the block level, but the filesystem on top still thinks it's the old size. Run `xfs_growfs <mountpoint>` (XFS) or `resize2fs <device>` (EXT4) to make the filesystem aware of the new space.
+ 
+**Q: Do you always need to run vgextend before lvextend?**
+> No. Only if the volume group itself has no free space. Check `vgs` first — if `VFree` shows available space, you can extend the LV directly using that space without adding a new disk.
+ 
+**Q: What is the difference between `-L +3G` and `-L 3G` in lvextend?**
+> `-L +3G` adds 3GB to the current size. `-L 3G` (no plus sign) sets the absolute size to 3GB total — which could actually shrink the volume if it's currently bigger than 3GB. Always double-check for the `+`.
+ 
+**Q: Why does xfs_growfs take a mount point instead of a device path?**
+> XFS tools operate on the mounted filesystem, not the raw block device. You point `xfs_growfs` at where the filesystem is mounted (`/lvm-data`), while `lvextend` points at the LVM device path (`/dev/datavg/datalv`).
+ 
+**Q: Can you shrink an XFS filesystem the same way?**
+> No. XFS does NOT support shrinking — only growing. To "shrink" you'd need to back up data, recreate a smaller filesystem, and restore. This is one reason EXT4 is sometimes preferred when shrinking might be needed.
+ 
+---
+
 *Notes by Pujan | RHCSA Hands-On Self Challenge | Week 2 Part 2*
