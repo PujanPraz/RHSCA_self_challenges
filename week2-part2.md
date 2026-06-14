@@ -11,10 +11,10 @@
 - [Why LVM Exists](#why-lvm-exists)
 - [The 3 Layers of LVM](#the-3-layers-of-lvm)
 - [Day 10 — Setting Up LVM From Scratch](#day-10--setting-up-lvm-from-scratch)
+- [Day 11 — Extending a Logical Volume (Zero Downtime)](#day-11--extending-a-logical-volume-zero-downtime)
 - [Quick Reference Card](#quick-reference-card)
 - [Interview Questions](#interview-questions)
-- [Day 11 — Extending a Logical Volume (Zero Downtime)](#Day-11--Extending-a-Logical-Volume-(Zero-Downtime))
-
+  
 ---
 
 ## Why LVM Exists
