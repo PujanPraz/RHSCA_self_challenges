@@ -13,6 +13,7 @@
 - [Day 10 — Setting Up LVM From Scratch](#day-10--setting-up-lvm-from-scratch)
 - [Quick Reference Card](#quick-reference-card)
 - [Interview Questions](#interview-questions)
+- [Day 11 — Extending a Logical Volume (Zero Downtime)](#Day-11--Extending-a-Logical-Volume-(Zero-Downtime))
 
 ---
 
